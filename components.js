@@ -5,7 +5,8 @@ function localinkIcon(name) {
     logout: `<path d="M10 6H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4" /><path d="m15 8 4 4-4 4" /><path d="M19 12H9" />`,
     settings: `<path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 0 1-2.83 2.83l-.04-.04a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 0 1-4 0v-.06a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 0 1 0-4h.06A1.7 1.7 0 0 0 4.6 8a1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 9 3.6 1.7 1.7 0 0 0 10 2.06V2a2 2 0 0 1 4 0v.06A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 0 1 2.83 2.83l-.04.04A1.7 1.7 0 0 0 19.4 8 1.7 1.7 0 0 0 21 9.94H21a2 2 0 0 1 0 4h-.06A1.7 1.7 0 0 0 19.4 15Z" />`,
     explore: `<circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2.1 5-4.9 2 2.1-5 4.9-2Z" />`,
-    chat: `<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.8 8.8 0 0 1-3.8-.88L3 20l1.1-4.7A8.3 8.3 0 1 1 21 11.5Z" />`,
+    club: `<path d="M4 20V10l8-6 8 6v10" /><path d="M9 20v-6h6v6" />`,
+    community: `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="3" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />`,
     heart: `<path d="M20.5 8.7c0 5.3-8.5 10-8.5 10S3.5 14 3.5 8.7A4.5 4.5 0 0 1 12 6.5a4.5 4.5 0 0 1 8.5 2.2Z" />`,
     requests: `<path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.7A4 4 0 0 1 19 11c0 5.6-7 10-7 10Z" /><path d="M12 8v6" /><path d="M9 11h6" />`,
     profile: `<path d="M20 21a8 8 0 0 0-16 0" /><circle cx="12" cy="8" r="4" />`,
@@ -54,15 +55,13 @@ window.LocalinkComponents = {
     `;
   },
 
-  bottomNav(active, role = "traveler") {
-    const localEnabled = role === "local_host";
-
+  bottomNav(active) {
     return `
       <nav class="bottom-nav" aria-label="Primary">
-        <button class="${active === "map" ? "active" : ""}" type="button" data-screen="map">${localinkIcon("explore")}Explore</button>
-        <button class="${active === "requests" ? "active" : ""} ${localEnabled ? "" : "locked"}" type="button" data-action="open-requests">${localinkIcon("requests")}Likes</button>
-        <button class="${active === "chat" ? "active" : ""}" type="button" data-screen="chat">${localinkIcon("chat")}Chats</button>
-        <button class="${active === "profile" ? "active" : ""}" type="button" data-screen="profile">${localinkIcon("profile")}Profile</button>
+        <button class="${active === "map" ? "active" : ""}" type="button" data-screen="map">${localinkIcon("explore")}探す</button>
+        <button class="${active === "clubs" || active === "clubDetail" ? "active" : ""}" type="button" data-screen="clubs">${localinkIcon("club")}クラブ</button>
+        <button class="${active === "community" ? "active" : ""}" type="button" data-screen="community">${localinkIcon("community")}コミュニティ</button>
+        <button class="${active === "profile" ? "active" : ""}" type="button" data-screen="profile">${localinkIcon("profile")}プロフィール</button>
       </nav>
     `;
   },
@@ -101,6 +100,24 @@ window.LocalinkComponents = {
             : `<input name="${name}" type="${type}" value="${value}" placeholder="${placeholder}" />`
         }
       </label>
+    `;
+  },
+
+  clubCard(club) {
+    return `
+      <article class="local-card" data-club-card="${club.id}">
+        <img src="${club.image}" alt="${club.name}" />
+        <div>
+          <div class="local-card-title">
+            <strong>${club.name}</strong>
+            <span>${club.level}</span>
+          </div>
+          <p>${club.summary}</p>
+          <div class="chip-row">${club.tags.map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>
+          <p class="helper-text">${club.meetingPoint} · ${club.nextRun}</p>
+        </div>
+        <button class="icon-button" type="button" data-action="open-club" data-club="${club.id}" aria-label="${club.name} を見る">›</button>
+      </article>
     `;
   },
 
