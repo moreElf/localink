@@ -1,4 +1,6 @@
-// Localink local prototype configuration.
+// TravelBuddy demo configuration.
+// window.LOCALINK_CONFIG is unchanged so the existing Supabase client keeps working.
+// Swipe, match, and 1:1 messages are disabled in the client. Registration is not open.
 //
 // The Explore screen now uses Leaflet with OpenStreetMap tiles, so no map
 // API key is required for the current prototype.

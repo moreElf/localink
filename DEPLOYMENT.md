@@ -1,11 +1,15 @@
-# Localink MVP Deployment
+# TravelBuddy demo
 
-This prototype is a static mobile-first web app. It can be deployed as plain
-HTML, CSS, and JavaScript without a build step.
+This prototype is a static mobile-first web app for a pre-registration TravelBuddy demo.
+It still deploys as plain HTML, CSS, and JavaScript without a build step.
 
-## Recommended First Deploy
+The demo is community and run-club first. Swipe, match, and 1:1 messages are disabled
+in the client. Account creation and login submission are closed. This repository
+change does not deploy the site, change its visibility, or add payments.
 
-Use Vercel or Netlify for the first public MVP link.
+## Static hosting
+
+Use Vercel or Netlify when a preview host is needed.
 
 - Vercel: import this folder/repository and deploy it as a static project.
 - Netlify: deploy this folder with `publish = "."`.
@@ -13,45 +17,34 @@ Use Vercel or Netlify for the first public MVP link.
 No build command is required.
 
 The Supabase SQL files are for local/admin use only. The Vercel ignore file and
-Netlify redirects keep those files out of the public MVP surface.
+Netlify redirects keep those files out of the public site surface.
 
-## Supabase Settings To Check
+Do not drop `supabase/migrations/002_create_swipes.sql`,
+`003_create_matches.sql`, or `004_create_messages.sql`. Those historical tables
+stay in the schema. The TravelBuddy client does not query them.
 
-Open Supabase Dashboard -> Authentication -> URL Configuration.
+## Supabase settings
 
-After deployment, set:
+Open Supabase Dashboard -> Authentication -> URL Configuration only when a
+real launch is planned. This demo does not open registration.
 
-- Site URL: your deployed production URL.
-- Redirect URLs: your deployed production URL.
-
-For local testing, keep these redirect URLs too:
-
-- `http://localhost:4173`
-- `http://localhost:4174`
-- `http://localhost:4185`
-- `file:///Users/moreelf/Documents/Codex/2026-05-27/i-want-to-create-an-app/index.html`
-
-## Frontend Supabase Keys
-
-The current static prototype reads Supabase settings from `config.js`.
-
-- `SUPABASE_URL`: Supabase Project URL.
-- `SUPABASE_ANON_KEY`: Supabase public anon key.
+- `SUPABASE_URL`: Supabase Project URL, read from `config.js`.
+- `SUPABASE_ANON_KEY`: Supabase public anon key, read from `config.js`.
 
 The anon key is designed to be public in browser apps, but Row Level Security
 must stay enabled. Never put the service role key in frontend code.
 
-## Pre-Deploy Checklist
+## Demo checklist
 
-- Run all Supabase migrations in `supabase/migrations`.
-- Run the sample seed only if you still need demo Local profiles.
-- Confirm RLS policies allow the expected authenticated reads.
-- Confirm login works with a real email/password user.
-- Confirm profile completion works with at least 3 media uploads.
-- Confirm Local mode creates or updates `local_host_profiles`.
-- Confirm Explore -> Local list -> Local detail works after refresh.
+- Welcome copy says TravelBuddy and 受付開始前.
+- Explore still loads the map and cities.
+- Run clubs open with no like, pass, match, or chat actions.
+- The community screen has no composer.
+- Profile and join buttons stay disabled.
+- Profile and media write APIs refuse immediately and do not call Supabase.
+- `node scripts/check-travelbuddy-demo.js` passes.
 
-## Quick Local Preview
+## Local preview
 
 From this folder:
 

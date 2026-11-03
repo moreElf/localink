@@ -30,50 +30,23 @@ function throwIfError(error) {
   if (error) throw error;
 }
 
-async function getAuthUserId(supabase) {
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  throwIfError(userError);
-
-  const userId = userData.user?.id;
-  if (!userId) throw new Error("No authenticated user found.");
-  return userId;
+function refuseDemoWrite() {
+  throw new Error("TravelBuddy デモではプロフィールとメディアの保存を受け付けていません（受付開始前）。");
 }
 
-const matchSelect = `
-  *,
-  traveler:profiles!matches_traveler_id_fkey(*),
-  host_profile:local_host_profiles!matches_host_profile_id_fkey(
-    *,
-    profile:profiles!local_host_profiles_user_id_fkey(
-      *,
-      profile_media(*)
-    ),
-    city:cities!local_host_profiles_city_id_fkey(*)
-  )
-`;
-
+// TravelBuddy demo: swipe, match, and 1:1 message clients are removed.
+// Tables created by supabase/migrations/002–004 stay in place and are not queried here.
 window.LocalinkApi = {
-  async signIn(email, password) {
-    const supabase = await requireSupabase();
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    throwIfError(error);
-    return data;
+  matchingEnabled: false,
+  directMessagesEnabled: false,
+  profileWritesEnabled: false,
+
+  async signIn() {
+    throw new Error("TravelBuddy デモではログインを受け付けていません（受付開始前）。");
   },
 
-  async signUp(email, password, name = "") {
-    const supabase = await requireSupabase();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: name ? { name } : {},
-      },
-    });
-    throwIfError(error);
-    return data;
+  async signUp() {
+    throw new Error("TravelBuddy デモではアカウント作成を受け付けていません（受付開始前）。");
   },
 
   async signOut() {
@@ -141,166 +114,24 @@ window.LocalinkApi = {
     return data;
   },
 
-  async upsertProfile({ id, email, name, role = "traveler", avatarUrl = null }) {
-    const supabase = await requireSupabase();
-    const { data, error } = await supabase
-      .from("profiles")
-      .upsert(
-        {
-          id,
-          email,
-          name,
-          role,
-          avatar_url: avatarUrl,
-        },
-        { onConflict: "id" },
-      )
-      .select("*")
-      .single();
-
-    throwIfError(error);
-    return data;
+  async upsertProfile() {
+    refuseDemoWrite();
   },
 
-  async updateProfileRole(role) {
-    const supabase = await requireSupabase();
-    const userId = await getAuthUserId(supabase);
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({ role })
-      .eq("id", userId)
-      .select("*")
-      .single();
-
-    throwIfError(error);
-    return data;
+  async updateProfileRole() {
+    refuseDemoWrite();
   },
 
-  async updateProfile(profile) {
-    const supabase = await requireSupabase();
-    const userId = await getAuthUserId(supabase);
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({
-        name: profile.name,
-        bio: profile.bio,
-        interests: profile.interests,
-        languages: profile.languages,
-        home_city: profile.homeCity,
-        favorite_spots: profile.favoriteSpots,
-        profile_photo_url: profile.profilePhotoUrl,
-        avatar_url: profile.profilePhotoUrl || profile.avatarUrl || null,
-        job: profile.job,
-        education: profile.education,
-      })
-      .eq("id", userId)
-      .select("*")
-      .single();
-
-    console.log("[Localink Supabase] updateProfile", {
-      error,
-      row: data,
-    });
-
-    throwIfError(error);
-    return data;
+  async updateProfile() {
+    refuseDemoWrite();
   },
 
-  async updateLocalMode(enabled) {
-    const supabase = await requireSupabase();
-    const userId = await getAuthUserId(supabase);
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({
-        local_enabled: Boolean(enabled),
-        role: enabled ? "local_host" : "traveler",
-      })
-      .eq("id", userId)
-      .select("*")
-      .single();
-
-    console.log("[Localink Supabase] updateLocalMode", {
-      enabled,
-      error,
-      row: data,
-    });
-
-    throwIfError(error);
-
-    if (!enabled) {
-      const { error: hostError } = await supabase
-        .from("local_host_profiles")
-        .update({ is_active: false })
-        .eq("user_id", userId);
-      throwIfError(hostError);
-    }
-
-    return data;
+  async updateLocalMode() {
+    refuseDemoWrite();
   },
 
-  async upsertLocalProfileFromProfile(cityId = null) {
-    const supabase = await requireSupabase();
-    const userId = await getAuthUserId(supabase);
-
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-    throwIfError(profileError);
-
-    let targetCityId = cityId || profile.home_city_id || null;
-    if (!targetCityId && profile.home_city) {
-      const { data: cityByName, error: cityByNameError } = await supabase
-        .from("cities")
-        .select("id")
-        .ilike("name", profile.home_city)
-        .maybeSingle();
-      throwIfError(cityByNameError);
-      targetCityId = cityByName?.id || null;
-    }
-    if (!targetCityId) {
-      const { data: firstCity, error: cityError } = await supabase
-        .from("cities")
-        .select("id")
-        .order("name", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      throwIfError(cityError);
-      targetCityId = firstCity?.id;
-    }
-    if (!targetCityId) throw new Error("A city is required before enabling Local mode.");
-
-    const { data, error } = await supabase
-      .from("local_host_profiles")
-      .upsert(
-        {
-          user_id: userId,
-          city_id: targetCityId,
-          job_title: profile.job || "Local",
-          host_bio: profile.bio || "Happy to share local tips with travelers.",
-          verified: Boolean(profile.verified),
-          interests: profile.interests || [],
-          languages: profile.languages || [],
-          photo_url: profile.profile_photo_url || profile.avatar_url || null,
-          is_active: true,
-        },
-        { onConflict: "user_id" },
-      )
-      .select("*")
-      .single();
-
-    console.log("[Localink Supabase] upsertLocalProfileFromProfile", {
-      cityId: targetCityId,
-      error,
-      row: data,
-    });
-
-    throwIfError(error);
-    return data;
+  async upsertLocalProfileFromProfile() {
+    refuseDemoWrite();
   },
 
   async getProfileMedia(profileId) {
@@ -323,97 +154,16 @@ window.LocalinkApi = {
     return data;
   },
 
-  async uploadProfileMedia(file, category = "self", sortOrder = 0) {
-    const supabase = await requireSupabase();
-    const userId = await getAuthUserId(supabase);
-    if (!file) throw new Error("Choose a photo before uploading.");
-    if (!["self", "favorite"].includes(category)) throw new Error("Media category must be self or favorite.");
-
-    const extension = file.name?.split(".").pop()?.toLowerCase() || "jpg";
-    const safeName = `${crypto.randomUUID()}.${extension}`;
-    const storagePath = `${userId}/${safeName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("profile-media")
-      .upload(storagePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-    throwIfError(uploadError);
-
-    const { data: publicData } = supabase.storage
-      .from("profile-media")
-      .getPublicUrl(storagePath);
-
-    const { data, error } = await supabase
-      .from("profile_media")
-      .insert({
-        profile_id: userId,
-        storage_path: storagePath,
-        public_url: publicData?.publicUrl || "",
-        category,
-        sort_order: sortOrder,
-      })
-      .select("*")
-      .single();
-
-    console.log("[Localink Supabase] uploadProfileMedia", {
-      category,
-      storagePath,
-      error,
-      row: data,
-    });
-
-    throwIfError(error);
-    return data;
+  async uploadProfileMedia() {
+    refuseDemoWrite();
   },
 
-  async deleteProfileMedia(mediaId) {
-    const supabase = await requireSupabase();
-    const userId = await getAuthUserId(supabase);
-
-    const { data: media, error: mediaError } = await supabase
-      .from("profile_media")
-      .select("*")
-      .eq("id", mediaId)
-      .eq("profile_id", userId)
-      .single();
-    throwIfError(mediaError);
-
-    const { error: removeError } = await supabase.storage
-      .from("profile-media")
-      .remove([media.storage_path]);
-    throwIfError(removeError);
-
-    const { error } = await supabase
-      .from("profile_media")
-      .delete()
-      .eq("id", mediaId)
-      .eq("profile_id", userId);
-
-    console.log("[Localink Supabase] deleteProfileMedia", {
-      mediaId,
-      error,
-    });
-
-    throwIfError(error);
-    return media;
+  async deleteProfileMedia() {
+    refuseDemoWrite();
   },
 
-  async reorderProfileMedia(mediaIds) {
-    const supabase = await requireSupabase();
-    const userId = await getAuthUserId(supabase);
-
-    const updates = mediaIds.map((id, index) => supabase
-      .from("profile_media")
-      .update({ sort_order: index })
-      .eq("id", id)
-      .eq("profile_id", userId));
-
-    const results = await Promise.all(updates);
-    const failed = results.find((result) => result.error);
-    throwIfError(failed?.error);
-    return true;
+  async reorderProfileMedia() {
+    refuseDemoWrite();
   },
 
   async searchCities(query) {
@@ -552,224 +302,6 @@ window.LocalinkApi = {
       error,
       count: data?.length || 0,
       rows: data || [],
-    });
-
-    throwIfError(error);
-    return data;
-  },
-
-  async createSwipe(hostProfileId, action) {
-    if (!["like", "pass"].includes(action)) {
-      throw new Error("Swipe action must be like or pass.");
-    }
-
-    const supabase = await requireSupabase();
-    const userId = await getAuthUserId(supabase);
-
-    const { data, error } = await supabase
-      .from("swipes")
-      .insert({
-        traveler_id: userId,
-        host_profile_id: hostProfileId,
-        action,
-      })
-      .select("*")
-      .single();
-
-    console.log("[Localink Supabase] createSwipe", {
-      hostProfileId,
-      action,
-      error,
-      row: data,
-    });
-
-    throwIfError(error);
-    return data;
-  },
-
-  async getMySwipes() {
-    const supabase = await requireSupabase();
-    const userId = await getAuthUserId(supabase);
-
-    const { data, error } = await supabase
-      .from("swipes")
-      .select("*")
-      .eq("traveler_id", userId)
-      .order("created_at", { ascending: false });
-
-    console.log("[Localink Supabase] getMySwipes", {
-      error,
-      count: data?.length || 0,
-      rows: data || [],
-    });
-
-    throwIfError(error);
-    return data;
-  },
-
-  async createOrGetPendingMatch(hostProfileId) {
-    const supabase = await requireSupabase();
-    const userId = await getAuthUserId(supabase);
-
-    const { data, error } = await supabase
-      .from("matches")
-      .insert({
-        traveler_id: userId,
-        host_profile_id: hostProfileId,
-        status: "pending",
-      })
-      .select(matchSelect)
-      .single();
-
-    if (error?.code === "23505") {
-      const { data: existing, error: existingError } = await supabase
-        .from("matches")
-        .select(matchSelect)
-        .eq("traveler_id", userId)
-        .eq("host_profile_id", hostProfileId)
-        .single();
-
-      console.log("[Localink Supabase] createOrGetPendingMatch existing", {
-        hostProfileId,
-        error: existingError,
-        row: existing,
-      });
-
-      throwIfError(existingError);
-      return existing;
-    }
-
-    console.log("[Localink Supabase] createOrGetPendingMatch", {
-      hostProfileId,
-      error,
-      row: data,
-    });
-
-    throwIfError(error);
-    return data;
-  },
-
-  async getMyMatches() {
-    const supabase = await requireSupabase();
-    await getAuthUserId(supabase);
-
-    const { data, error } = await supabase
-      .from("matches")
-      .select(matchSelect)
-      .eq("status", "accepted")
-      .order("updated_at", { ascending: false });
-
-    console.log("[Localink Supabase] getMyMatches", {
-      error,
-      count: data?.length || 0,
-      rows: data || [],
-    });
-
-    throwIfError(error);
-    return data;
-  },
-
-  async getIncomingMatchRequests() {
-    const supabase = await requireSupabase();
-    const userId = await getAuthUserId(supabase);
-
-    const { data: hostProfile, error: hostError } = await supabase
-      .from("local_host_profiles")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    throwIfError(hostError);
-    if (!hostProfile?.id) return [];
-
-    const { data, error } = await supabase
-      .from("matches")
-      .select(matchSelect)
-      .eq("host_profile_id", hostProfile.id)
-      .eq("status", "pending")
-      .order("created_at", { ascending: true });
-
-    console.log("[Localink Supabase] getIncomingMatchRequests", {
-      hostProfileId: hostProfile.id,
-      error,
-      count: data?.length || 0,
-      rows: data || [],
-    });
-
-    throwIfError(error);
-    return data;
-  },
-
-  async updateMatchStatus(matchId, status) {
-    if (!["accepted", "rejected"].includes(status)) {
-      throw new Error("Match status must be accepted or rejected.");
-    }
-
-    const supabase = await requireSupabase();
-    await getAuthUserId(supabase);
-
-    const { data, error } = await supabase
-      .from("matches")
-      .update({ status })
-      .eq("id", matchId)
-      .select(matchSelect)
-      .single();
-
-    console.log("[Localink Supabase] updateMatchStatus", {
-      matchId,
-      status,
-      error,
-      row: data,
-    });
-
-    throwIfError(error);
-    return data;
-  },
-
-  async getMessages(matchId) {
-    const supabase = await requireSupabase();
-    await getAuthUserId(supabase);
-
-    const { data, error } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("match_id", matchId)
-      .order("created_at", { ascending: true });
-
-    console.log("[Localink Supabase] getMessages", {
-      matchId,
-      error,
-      count: data?.length || 0,
-      rows: data || [],
-    });
-
-    throwIfError(error);
-    return data;
-  },
-
-  async sendMessage(matchId, body) {
-    const trimmedBody = body.trim();
-    if (!trimmedBody) {
-      throw new Error("Message cannot be empty.");
-    }
-
-    const supabase = await requireSupabase();
-    const userId = await getAuthUserId(supabase);
-
-    const { data, error } = await supabase
-      .from("messages")
-      .insert({
-        match_id: matchId,
-        sender_id: userId,
-        body: trimmedBody,
-      })
-      .select("*")
-      .single();
-
-    console.log("[Localink Supabase] sendMessage", {
-      matchId,
-      error,
-      row: data,
     });
 
     throwIfError(error);
