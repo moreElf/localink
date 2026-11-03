@@ -41,6 +41,7 @@ must stay enabled. Never put the service role key in frontend code.
 - Run clubs open with no like, pass, match, or chat actions.
 - The community screen has no composer.
 - Profile and join buttons stay disabled.
+- Profile and media write APIs refuse immediately and do not call Supabase.
 - `node scripts/check-travelbuddy-demo.js` passes.
 
 ## Local preview

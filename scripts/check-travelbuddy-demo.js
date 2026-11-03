@@ -41,7 +41,8 @@ const forbidden = [
   ["api.js", /createSwipe|createOrGetPendingMatch|getMyMatches|getIncomingMatchRequests|updateMatchStatus|\bsendMessage\b|\bgetMessages\b/],
   ["api.js", /signInWithPassword|auth\.signUp/],
   ["app.js", /createSwipe|createOrGetPendingMatch|getMyMatches|getIncomingMatchRequests|updateMatchStatus|\bsendMessage\b|\bgetMessages\b|signInWithPassword|auth\.signUp/],
-  ["app.js", /LocalinkApi\.(signIn|signUp|uploadProfileMedia|updateProfile|updateLocalMode|upsertProfile|deleteProfileMedia)\s*\(/],
+  ["app.js", /LocalinkApi\.(signIn|signUp|uploadProfileMedia|updateProfileRole|updateProfile|updateLocalMode|upsertLocalProfileFromProfile|upsertProfile|deleteProfileMedia|reorderProfileMedia)\s*\(/],
+  ["api.js", /\.upsert\s*\(|\.update\s*\(|\.insert\s*\(|\.delete\s*\(|\.storage\b|\.upload\s*\(/],
   ["screens.js", /data-action="(like|pass|open-chat|accept-match|reject-match|open-requests)"|data-chat-form|data-login-form|data-screen="chat"|type="password"/],
   ["components.js", /data-action="open-requests"|data-screen="chat"/],
 ];
@@ -62,6 +63,7 @@ const required = [
   ["screens.js", /投稿は受け付けていません/],
   ["api.js", /matchingEnabled:\s*false/],
   ["api.js", /directMessagesEnabled:\s*false/],
+  ["api.js", /profileWritesEnabled:\s*false/],
   ["data.js", /runClubs/],
   ["components.js", /data-screen="clubs"/],
   ["components.js", /data-screen="community"/],
@@ -130,8 +132,26 @@ for (const file of ["data.js", "components.js", "screens.js", "api.js"]) {
 }
 
 const api = context.window.LocalinkApi;
-if (api.matchingEnabled !== false || api.directMessagesEnabled !== false) {
-  fail("LocalinkApi flags do not disable matching and direct messages.");
+if (api.matchingEnabled !== false || api.directMessagesEnabled !== false || api.profileWritesEnabled !== false) {
+  fail("LocalinkApi flags do not disable matching, direct messages, or profile writes.");
+}
+
+const profileWriteMethods = [
+  "upsertProfile",
+  "updateProfile",
+  "updateProfileRole",
+  "updateLocalMode",
+  "upsertLocalProfileFromProfile",
+  "uploadProfileMedia",
+  "deleteProfileMedia",
+  "reorderProfileMedia",
+];
+const apiSource = read("api.js");
+for (const name of profileWriteMethods) {
+  const closed = new RegExp(`async ${name}\\(\\) \\{\\s*refuseDemoWrite\\(\\);\\s*\\}`);
+  if (!closed.test(apiSource)) {
+    fail(`LocalinkApi.${name} is not an immediate demo refusal.`);
+  }
 }
 for (const name of [
   "createSwipe",
@@ -162,6 +182,14 @@ async function assertClosed(label, promise) {
 async function main() {
   await assertClosed("signIn", api.signIn("person@example.com", "secret"));
   await assertClosed("signUp", api.signUp("person@example.com", "secret"));
+  await assertClosed("upsertProfile", api.upsertProfile({ id: "user", email: "person@example.com", name: "A" }));
+  await assertClosed("updateProfile", api.updateProfile({ name: "A", bio: "bio" }));
+  await assertClosed("updateProfileRole", api.updateProfileRole("local_host"));
+  await assertClosed("updateLocalMode", api.updateLocalMode(true));
+  await assertClosed("upsertLocalProfileFromProfile", api.upsertLocalProfileFromProfile("city-id"));
+  await assertClosed("uploadProfileMedia", api.uploadProfileMedia({ name: "photo.jpg" }, "self", 0));
+  await assertClosed("deleteProfileMedia", api.deleteProfileMedia("media-id"));
+  await assertClosed("reorderProfileMedia", api.reorderProfileMedia(["media-id"]));
 
   const screens = context.window.LocalinkScreens;
   const data = context.window.LocalinkData;
